@@ -1,0 +1,59 @@
+#!/usr/bin/bash -l
+<%
+
+# Set our working directory.
+start_folder = Pathname.new(context.start_folder)
+
+code_server_version   = context.version
+
+# Ensure that code-server always starts up in either a user defined directory or the home directory.
+if ! start_folder.exist?
+    start_folder = Pathname.new(ENV['HOME'])
+elsif start_folder.file?
+    start_folder = start_folder.parent
+end
+%>
+
+CODE_SERVER_DATAROOT="$HOME/.local/share/code-server"
+mkdir -p "$CODE_SERVER_DATAROOT/extensions"
+
+# Expose the password to the server.
+export PASSWORD="$password"
+
+# Print compute node.
+echo "$(date): Running on compute node ${compute_node}:$port"
+
+# VSCode complains that system git is too old.
+module load <%= code_server_version %>
+
+CPP_FILE="<%= start_folder.to_s %>/.vscode/c_cpp_properties.json"
+
+if [[ -f "$CPP_FILE" ]]; then
+    CPP_DIR="${TMPDIR:=/tmp/$USER}/cpp-vscode"
+    mkdir -p "$CPP_DIR"
+    chmod 700 "$CPP_DIR"
+
+    # if the file is empty, let's initialize it
+    [ -s "$CPP_FILE" ] || echo '{"configurations": [{ "name": "Linux", "browse": { "databaseFilename": null }}], "version": 4}' > "$CPP_FILE"
+
+    jq --arg dbfile "$CPP_DIR/cpp-vscode.db" \
+      '.configurations[0].browse.databaseFilename = $dbfile' \
+      "$CPP_FILE" > "$CPP_FILE".new
+
+    mv "$CPP_FILE".new "$CPP_FILE"
+  fi
+
+#
+# Start Code Server.
+#
+echo "$(date): Started code-server"
+echo ""
+
+/home1/p233780/tmp/code-server-4.89.1-linux-amd64/bin/code-server \
+    --auth="password" \
+    --bind-addr="0.0.0.0:${port}" \
+    --disable-telemetry \
+    --ignore-last-opened \
+    --user-data-dir="$CODE_SERVER_DATAROOT" \
+    --log debug \
+    "<%= start_folder.to_s %>"

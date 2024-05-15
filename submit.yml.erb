@@ -1,0 +1,52 @@
+<%-
+  cores = num_cores.to_i
+    
+  hours = num_hours.to_i
+    
+  if node_type == "regular" 
+    if hours <= 8
+      partition = 'regularshort'
+    elsif hours > 8 and hours <= 72
+      partition = 'regularmedium'
+    else
+      partition = 'regularlong'
+    end
+  elsif node_type == 'himem'
+    if hours <= 8
+      partition = 'himemshort'
+    elsif hours > 8 and hours <= 72
+      partition = 'himemmedium'
+    else
+      partition = 'himemlong'
+    end
+  elsif node_type == 'gpua100' || node_type == 'gpuv100'
+    gpu_type_match = /^gpu(.*)/.match(node_type)
+    gpu_type = gpu_type_match[1]
+    if hours <= 4
+      partition = 'gpushort'
+    elsif hours > 4 and hours <= 24
+      partition = 'gpumedium'
+    else
+      partition = 'gpulong'
+    end
+  end
+-%>
+
+---
+batch_connect:
+  template: "basic"
+  conn_params:
+    - code_server_version
+script:
+  queue_name: <%= partition %>
+  wall_time: "<%= hours * 3600 %>"
+  native:
+    # Hardcode the number of nodes to 1
+    - "-N 1"
+    <%- if partition == 'gpushort' or partition == 'gpumedium' or partition == 'gpulong' -%>
+    - '--gres=gpu:<%= gpu_type %>:1'
+    <%- end -%>
+    - "--mem"
+    - "<%= memory.blank? ? 2000 : memory.to_i * 1000 %>"
+    - "-c"
+    - "<%= num_cores.blank? ? 1 : num_cores.to_i %>"
