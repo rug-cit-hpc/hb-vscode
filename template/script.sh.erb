@@ -49,11 +49,12 @@ if [[ -f "$CPP_FILE" ]]; then
 echo "$(date): Started code-server"
 echo ""
 
-/home1/p233780/tmp/code-server-4.89.1-linux-amd64/bin/code-server \
+code-server \
     --auth="password" \
     --bind-addr="0.0.0.0:${port}" \
     --disable-telemetry \
     --ignore-last-opened \
+    --extensions-dir="$CODE_SERVER_DATAROOT/extensions" \
     --user-data-dir="$CODE_SERVER_DATAROOT" \
     --log debug \
     "<%= start_folder.to_s %>"
